@@ -32,7 +32,6 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
-use futures::future::Shared;
 
 use tokio::task::{JoinError, JoinHandle};
 
@@ -148,7 +147,7 @@ pub async fn spawn(mut config: NodeConfig) -> (EthApi, NodeHandle) {
         inner: Box::pin(async move {
             // wait for the first task to finish
             inner.await.into_inner().0
-        }).shared(),
+        }),
         address: socket,
         backend_task,
     };
@@ -158,7 +157,7 @@ pub async fn spawn(mut config: NodeConfig) -> (EthApi, NodeHandle) {
     (api, handle)
 }
 
-type NodeFuture = Shared<Pin<Box<dyn Future<Output = Result<hyper::Result<()>, JoinError>>>>>;
+type NodeFuture = Pin<Box<dyn Future<Output = Result<hyper::Result<()>, JoinError>>>>;
 
 /// A handle to the spawned node and server
 pub struct NodeHandle {
