@@ -66,7 +66,8 @@ impl Fork {
 
         let db = BlockchainDb::new(meta, cache_path);
 
-        SharedBackend::spawn_backend(provider, db, pin_block.map(Into::into)).await
+        let (shared, _) = SharedBackend::spawn_backend(provider, db, pin_block.map(Into::into)).await;
+        shared
     }
 }
 /// Variants of a [revm::Database]
