@@ -145,10 +145,10 @@ pub async fn spawn(mut config: NodeConfig) -> (EthApi, NodeHandle) {
 
     let handle = NodeHandle {
         config,
-        inner: Box::pin(async move {
+        inner: Arc::new(Mutex::new(Box::pin(async move {
             // wait for the first task to finish
             inner.await.into_inner().0
-        }).shared(),
+        }))),
         address: socket,
         backend_task,
     };
@@ -158,7 +158,7 @@ pub async fn spawn(mut config: NodeConfig) -> (EthApi, NodeHandle) {
     (api, handle)
 }
 
-type NodeFuture = Shared<Pin<Box<dyn Future<Output = Result<hyper::Result<()>, JoinError>>>>>;
+type NodeFuture = Arc<Mutex<Pin<Box<dyn Future<Output = Result<hyper::Result<()>, JoinError>>>>>>;
 
 /// A handle to the spawned node and server
 pub struct NodeHandle {
@@ -244,14 +244,12 @@ impl NodeHandle {
     }
 }
 
-unsafe impl Send for NodeHandle {}
-
 impl Future for NodeHandle {
     type Output = Result<hyper::Result<()>, JoinError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let pin = self.get_mut();
-        pin.inner.poll_unpin(cx)
+        pin.inner.lock().poll_unpin(cx)
     }
 }
 
