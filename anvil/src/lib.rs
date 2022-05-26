@@ -243,8 +243,6 @@ impl NodeHandle {
     }
 }
 
-unsafe impl Send for NodeHandle {}
-
 impl Future for NodeHandle {
     type Output = Result<hyper::Result<()>, JoinError>;
 
