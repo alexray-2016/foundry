@@ -34,8 +34,6 @@ use foundry_evm::{
 };
 use parking_lot::RwLock;
 use std::{net::IpAddr, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
-use tokio::task::JoinHandle;
-use crate::mem::Backend;
 
 /// Default port the rpc will open
 pub const NODE_PORT: u16 = 8545;
@@ -435,7 +433,7 @@ Chain ID:       {}
     /// [Backend](mem::Backend)
     ///
     /// *Note*: only memory based backend for now
-    pub(crate) async fn setup(&mut self) -> (Backend, Option<JoinHandle<()>>) {
+    pub(crate) async fn setup(&mut self) -> mem::Backend {
         // configure the revm environment
         let mut env = revm::Env {
             cfg: CfgEnv {
@@ -453,7 +451,6 @@ Chain ID:       {}
         let fees = FeeManager::new(self.base_fee, self.gas_price);
         let mut fork_timestamp = None;
 
-        let mut backend_task = None;
         let (db, fork): (Arc<RwLock<dyn Db>>, Option<ClientFork>) = if let Some(eth_rpc_url) =
             self.eth_rpc_url.clone()
         {
@@ -490,13 +487,11 @@ Chain ID:       {}
 
             // This will spawn the background thread that will use the provider to fetch blockchain
             // data from the other client
-            let (backend, backend_task_inner) = SharedBackend::spawn_backend(
+            let backend = SharedBackend::spawn_backend_thread(
                 Arc::clone(&provider),
                 block_chain_db.clone(),
                 Some(fork_block_number.into()),
-            ).await;
-
-            backend_task = backend_task_inner;
+            );
 
             let db = Arc::new(RwLock::new(ForkedDatabase::new(backend, block_chain_db)));
             let fork = ClientFork::new(
@@ -528,7 +523,7 @@ Chain ID:       {}
         if let Some(timestamp) = fork_timestamp {
             backend.time().set_start_timestamp(timestamp.as_u64());
         }
-        (backend, backend_task)
+        backend
     }
 }
 

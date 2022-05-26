@@ -378,7 +378,6 @@ where
 pub struct SharedBackend {
     /// channel used for sending commands related to database operations
     backend: Sender<BackendRequest>,
-
     /// Ensures that the underlying cache gets flushed once the last `SharedBackend` is dropped.
     ///
     /// There is only one instance of the type, so as soon as the last `SharedBackend` is deleted,
@@ -394,15 +393,15 @@ impl SharedBackend {
     /// dropped.
     ///
     /// NOTE: this should be called with `Arc<Provider>`
-    pub async fn spawn_backend<M>(provider: M, db: BlockchainDb, pin_block: Option<BlockId>) -> (SharedBackend, Option<tokio::task::JoinHandle<()>>)
+    pub async fn spawn_backend<M>(provider: M, db: BlockchainDb, pin_block: Option<BlockId>) -> Self
     where
         M: Middleware + Unpin + 'static + Clone,
     {
         let (shared, handler) = Self::new(provider, db, pin_block);
         // spawn the provider handler to a task
         trace!(target: "backendhandler", "spawning Backendhandler task");
-        let backend_task = tokio::spawn(handler);
-        (shared, Some(backend_task))
+        tokio::spawn(handler);
+        shared
     }
 
     /// Same as `Self::spawn_backend` but spawns the `BackendHandler` on a separate `std::thread` in
@@ -549,7 +548,7 @@ mod tests {
 
         let db = BlockchainDb::new(meta, None);
         let runtime = RuntimeOrHandle::new();
-        let (backend, _) =
+        let backend =
             runtime.block_on(SharedBackend::spawn_backend(Arc::new(provider), db.clone(), None));
 
         // some rng contract from etherscan

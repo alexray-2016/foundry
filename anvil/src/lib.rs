@@ -32,8 +32,7 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
-
-use tokio::task::{JoinError, JoinHandle};
+use tokio::task::JoinError;
 
 /// contains the background service that drives the node
 mod service;
@@ -75,8 +74,7 @@ pub mod cmd;
 pub async fn spawn(mut config: NodeConfig) -> (EthApi, NodeHandle) {
     let logger = if config.enable_tracing { init_tracing() } else { Default::default() };
 
-    let (backend, backend_task) = config.setup().await;
-    let backend = Arc::new(backend);
+    let backend = Arc::new(config.setup().await);
 
     let fork = backend.get_fork().cloned();
 
@@ -149,7 +147,6 @@ pub async fn spawn(mut config: NodeConfig) -> (EthApi, NodeHandle) {
             inner.await.into_inner().0
         }),
         address: socket,
-        backend_task,
     };
 
     handle.print(fork.as_ref());
@@ -165,7 +162,6 @@ pub struct NodeHandle {
     address: SocketAddr,
     /// the future that drives the rpc service and the node service
     inner: NodeFuture,
-    backend_task: Option<JoinHandle<()>>,
 }
 
 impl NodeHandle {
@@ -234,12 +230,6 @@ impl NodeHandle {
     /// Default gas price for all txs
     pub fn gas_price(&self) -> U256 {
         self.config.gas_price
-    }
-
-    pub fn stop(&self) {
-        if self.backend_task.is_some() {
-            self.backend_task.as_ref().unwrap().abort();
-        }
     }
 }
 
